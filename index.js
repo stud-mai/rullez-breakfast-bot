@@ -27,9 +27,15 @@ function collectData() {
 
 function scheduleDailyReminder() {
   // Schedule an event every day at 08:30 and 22:30
-  const dailySchedule = '30 8,22 * * *';
+  // const dailySchedule = "30 8,22 * * *";
 
-  schedule.scheduleJob(dailySchedule, (fireDate) => {
+  // Define the schedule rule with the timezone option
+  const rule = new schedule.RecurrenceRule();
+  rule.tz = 'Europe/Istanbul';
+  rule.hour = [8, 22];
+  rule.minutes = 30;
+
+  schedule.scheduleJob(rule, (fireDate) => {
     console.log(`Daily reminder event triggered at ${fireDate}`);
     chatIds.forEach((chatId) => {
       if (userAnswers.has(chatId)) return;
@@ -44,9 +50,11 @@ function scheduleDailyReminder() {
 scheduleDailyReminder();
 
 function scheduleDailyCleanUp() {
-  const dailySchedule = '00 12 * * *';
+  const rule = new schedule.RecurrenceRule();
+  rule.tz = 'Europe/Istanbul';
+  rule.hour = 12;
 
-  schedule.scheduleJob(dailySchedule, (fireDate) => {
+  schedule.scheduleJob(rule, (fireDate) => {
     console.log(`Data cleanup event triggered at ${fireDate}`);
     userAnswers.clear();
   });
@@ -141,17 +149,69 @@ function processAnswer({ chatId, answer, query = false }) {
   }
 }
 
-bot.on('callback_query', (query) => {
-  const chatId = query.message.chat.id;
-  const answer = query.data;
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  const userName = msg.from.first_name;
 
-  processAnswer({ chatId, answer, query: true });
-
-  // Remove the inline keyboard after the user answers
-  bot.editMessageReplyMarkup(
-    { inline_keyboard: [] },
-    { chat_id: chatId, message_id: query.message.message_id },
+  bot.sendMessage(
+    chatId,
+    `Привет ${userName}!\n\n`
+    + 'Для выбора завтрака нужно отправить команду /select и ответить на вопросы бота.\n'
+    + 'Если необходимо изменить выбор завтрака отправьте команду /reselect.\n\n'
+    + 'Каждый день бот будет присылать напоминание о том, что надо выбрать завтрак на следующий день.',
   );
+
+  chatIds.add(chatId);
+});
+
+bot.onText(/\/select/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  if (userQuestionIndex.has(chatId)) {
+    bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
+    return;
+  }
+
+  if (userAnswers.has(chatId)) {
+    await bot.sendMessage(chatId, 'Вы уже выбрали завтрак');
+    await bot.sendMessage(
+      chatId,
+      'Чтобы изменить выбор воспользуйтесь командой /reselect',
+    );
+    return;
+  }
+
+  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
+  await bot.sendPhoto(chatId, './assets/omlet.jpeg', {
+    caption: 'Омлет из 3х яиц',
+  });
+  await bot.sendMessage(
+    chatId,
+    'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья',
+  );
+
+  sendQuestion(chatId, 0);
+});
+
+bot.onText(/\/reselect/, async (msg) => {
+  const chatId = msg.chat.id;
+
+  if (userQuestionIndex.has(chatId)) {
+    bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
+    return;
+  }
+
+  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
+  await bot.sendPhoto(chatId, './assets/omlet.jpeg', {
+    caption: 'Омлет из 3х яиц',
+  });
+  await bot.sendMessage(
+    chatId,
+    'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья',
+  );
+
+  sendQuestion(chatId, 0);
+  userAnswers.delete(chatId);
 });
 
 bot.on('message', (msg) => {
@@ -167,42 +227,17 @@ bot.on('message', (msg) => {
   processAnswer({ chatId, answer });
 });
 
-bot.onText(/\/select/, async (msg) => {
-  const chatId = msg.chat.id;
+bot.on('callback_query', (query) => {
+  const chatId = query.message.chat.id;
+  const answer = query.data;
 
-  if (userQuestionIndex.has(chatId)) {
-    bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
-    return;
-  }
+  processAnswer({ chatId, answer, query: true });
 
-  if (userAnswers.has(chatId)) {
-    await bot.sendMessage(chatId, 'Вы уже выбрали завтрак');
-    await bot.sendMessage(chatId, 'Чтобы изменить выбор воспользуйтесь командой /reselect');
-    return;
-  }
-
-  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
-  await bot.sendPhoto(chatId, './assets/omlet.jpeg', { caption: 'Омлет из 3х яиц' });
-  await bot.sendMessage(chatId, 'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья');
-
-  sendQuestion(chatId, 0);
-  chatIds.add(chatId);
-});
-
-bot.onText(/\/reselect/, async (msg) => {
-  const chatId = msg.chat.id;
-
-  if (userQuestionIndex.has(chatId)) {
-    bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
-    return;
-  }
-
-  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
-  await bot.sendPhoto(chatId, './assets/omlet.jpeg', { caption: 'Омлет из 3х яиц' });
-  await bot.sendMessage(chatId, 'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья');
-
-  sendQuestion(chatId, 0);
-  userAnswers.delete(chatId);
+  // Remove the inline keyboard after the user answers
+  bot.editMessageReplyMarkup(
+    { inline_keyboard: [] },
+    { chat_id: chatId, message_id: query.message.message_id },
+  );
 });
 
 bot.on('polling_error', (error) => {
@@ -217,9 +252,12 @@ bot.onText(/\/debug/, () => {
 
 bot.onText(/\/collect/, (msg) => {
   const data = collectData();
-  const report = Object.entries(data).reduce((acc, [meal, count]) => `${acc}${meal}: ${count}шт\n`, '');
+  const report = Object.entries(data).reduce(
+    (acc, [meal, count]) => `${acc}${meal}: ${count}шт\n`,
+    '',
+  );
   const hour = new Date().getHours();
-  const day = `${new Date().getDay() + Math.floor(hour / 12)}`.padStart(2, 0);
+  const day = `${new Date().getDate() + Math.floor(hour / 12)}`.padStart(2, 0);
   const month = `${new Date().getMonth() + 1}`.padStart(2, 0);
 
   bot.sendMessage(msg.chat.id, `Завтраки на ${day}/${month}:\n${report}`);
