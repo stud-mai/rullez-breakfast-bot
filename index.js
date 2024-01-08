@@ -162,6 +162,8 @@ bot.onText(/\/start/, (msg) => {
     + 'Каждый день бот будет присылать напоминание о том, что надо выбрать завтрак на следующий день.',
   );
 
+  userAnswers.delete(chatId);
+  userQuestionIndex.has(chatId);
   chatIds.add(chatId);
 });
 
