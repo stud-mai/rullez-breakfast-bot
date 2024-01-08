@@ -28,13 +28,10 @@ function collectData() {
 
 function scheduleDailyReminder() {
   // Schedule an event every day at 08:30 and 22:30
-  // const dailySchedule = "30 8,22 * * *";
-
-  // Define the schedule rule with the timezone option
   const rule = new schedule.RecurrenceRule();
   rule.tz = 'Europe/Istanbul';
   rule.hour = [8, 22];
-  rule.minutes = 30;
+  rule.minute = 30;
 
   schedule.scheduleJob(rule, (fireDate) => {
     console.log(`Daily reminder event triggered at ${fireDate}`);
@@ -48,12 +45,13 @@ function scheduleDailyReminder() {
   });
 }
 
-//scheduleDailyReminder();
+scheduleDailyReminder();
 
 function scheduleDailyCleanUp() {
   const rule = new schedule.RecurrenceRule();
   rule.tz = 'Europe/Istanbul';
   rule.hour = 12;
+  rule.minute = 0;
 
   schedule.scheduleJob(rule, (fireDate) => {
     console.log(`Data cleanup event triggered at ${fireDate}`);
@@ -157,9 +155,9 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(
     chatId,
     `Привет ${userName}!\n\n`
-    + 'Для выбора завтрака нужно отправить команду /select и ответить на вопросы бота.\n'
-    + 'Если необходимо изменить выбор завтрака отправьте команду /reselect.\n\n'
-    + 'Каждый день бот будет присылать напоминание о том, что надо выбрать завтрак на следующий день.',
+      + 'Для выбора завтрака нужно отправить команду /select и ответить на вопросы бота.\n'
+      + 'Если необходимо изменить выбор завтрака отправьте команду /reselect.\n\n'
+      + 'Каждый день бот будет присылать напоминание о том, что надо выбрать завтрак на следующий день.',
   );
 
   userAnswers.delete(chatId);
