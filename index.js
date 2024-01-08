@@ -48,7 +48,7 @@ function scheduleDailyReminder() {
   });
 }
 
-scheduleDailyReminder();
+//scheduleDailyReminder();
 
 function scheduleDailyCleanUp() {
   const rule = new schedule.RecurrenceRule();
