@@ -34,7 +34,10 @@ function scheduleDailyReminder() {
   rule.minute = 30;
 
   schedule.scheduleJob(rule, (fireDate) => {
-    console.log(`Daily reminder event triggered at ${fireDate}`);
+    console.log(
+      `Daily reminder event triggered at ${fireDate} for chats`,
+      chatIds,
+    );
     chatIds.forEach((chatId) => {
       if (userAnswers.has(chatId)) return;
       bot.sendMessage(
@@ -71,33 +74,29 @@ function sendQuestion(chatId, questionIndex) {
   const question = questions[questionIndex];
 
   userQuestionIndex.set(chatId, questionIndex);
+  isInlineKeyboardAnswerExpected = Array.isArray(question.options);
 
-  if (question.isTextAnswer) {
-    isInlineKeyboardAnswerExpected = false;
-    bot.sendMessage(chatId, question.text, {
+  if (!isInlineKeyboardAnswerExpected) {
+    return bot.sendMessage(chatId, question.text, {
       reply_markup: {
         force_reply: true,
       },
     });
-  } else {
-    const options = question.options.map((option, index) => [
-      { text: option, callback_data: index },
-    ]);
-
-    isInlineKeyboardAnswerExpected = true;
-    bot.sendMessage(
-      chatId,
-      question.text.replace(
-        '$person',
-        getPeopleAmount(chatId) - peopleLeft + 1,
-      ),
-      {
-        reply_markup: {
-          inline_keyboard: options,
-        },
-      },
-    );
   }
+
+  const options = question.options.map((option, index) => [
+    { text: option, callback_data: index },
+  ]);
+
+  return bot.sendMessage(
+    chatId,
+    question.text.replace('$person', getPeopleAmount(chatId) - peopleLeft + 1),
+    {
+      reply_markup: {
+        inline_keyboard: options,
+      },
+    },
+  );
 }
 
 function processAnswer({ chatId, answer, query = false }) {
@@ -148,6 +147,25 @@ function processAnswer({ chatId, answer, query = false }) {
   }
 }
 
+async function startSelectingBreakfast(chatId) {
+  if (userQuestionIndex.has(chatId)) {
+    await bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
+    return false;
+  }
+
+  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
+  await bot.sendPhoto(chatId, './assets/omlet.jpeg', {
+    caption: 'Омлет из 3х яиц',
+  });
+  await bot.sendMessage(
+    chatId,
+    'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья',
+  );
+
+  sendQuestion(chatId, 0);
+  return true;
+}
+
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const userName = msg.from.first_name;
@@ -161,17 +179,12 @@ bot.onText(/\/start/, (msg) => {
   );
 
   userAnswers.delete(chatId);
-  userQuestionIndex.has(chatId);
+  userQuestionIndex.delete(chatId);
   chatIds.add(chatId);
 });
 
 bot.onText(/\/select/, async (msg) => {
   const chatId = msg.chat.id;
-
-  if (userQuestionIndex.has(chatId)) {
-    bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
-    return;
-  }
 
   if (userAnswers.has(chatId)) {
     await bot.sendMessage(chatId, 'Вы уже выбрали завтрак');
@@ -182,37 +195,16 @@ bot.onText(/\/select/, async (msg) => {
     return;
   }
 
-  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
-  await bot.sendPhoto(chatId, './assets/omlet.jpeg', {
-    caption: 'Омлет из 3х яиц',
-  });
-  await bot.sendMessage(
-    chatId,
-    'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья',
-  );
-
-  sendQuestion(chatId, 0);
+  await startSelectingBreakfast(chatId);
 });
 
 bot.onText(/\/reselect/, async (msg) => {
   const chatId = msg.chat.id;
+  const hasStarted = await startSelectingBreakfast(chatId);
 
-  if (userQuestionIndex.has(chatId)) {
-    bot.sendMessage(chatId, 'Сперва закончите начатый выбор завтрака');
-    return;
+  if (hasStarted) {
+    userAnswers.delete(chatId);
   }
-
-  await bot.sendPhoto(chatId, './assets/menu.jpeg', { caption: 'Фото меню' });
-  await bot.sendPhoto(chatId, './assets/omlet.jpeg', {
-    caption: 'Омлет из 3х яиц',
-  });
-  await bot.sendMessage(
-    chatId,
-    'Еще добавим простой вариант геркулесовой каши с добавками в виде варенья',
-  );
-
-  sendQuestion(chatId, 0);
-  userAnswers.delete(chatId);
 });
 
 bot.on('message', (msg) => {

@@ -2,17 +2,13 @@ module.exports = [
   {
     text: 'Ваш отель?',
     options: ['Twin Apart', 'Aria Riva'],
-    nextQuestion: 1,
   },
   {
-    text: 'Номер комнаты?',
-    isTextAnswer: true,
-    nextQuestion: 2,
+    text: 'Какой у Вас номер комнаты?',
   },
   {
     text: 'Количество людей?',
     options: ['1', '2', '3'],
-    nextQuestion: 3,
   },
   {
     text: 'Выберите блюдо на завтрак ($person персона)',
@@ -27,6 +23,5 @@ module.exports = [
       'Каша геркулес с добавками варенье/мед',
       'Омлет из 3х яиц',
     ],
-    nextQuestion: null,
   },
 ];
